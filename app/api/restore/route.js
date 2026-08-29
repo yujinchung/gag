@@ -1,3 +1,5 @@
+import { scoreRestore } from '../../../lib/game';
+
 const MODEL = 'claude-haiku-4-5';
 
 const SYSTEM = `당신은 은유 복원 심판이다.
@@ -15,9 +17,8 @@ note는 한국어 한 문장. 무엇을 놓쳤는지 말한다.
 {"body": <0-100>, "space": <0-100>, "condition": <0-100>, "note": "<한 문장>"}`;
 
 export async function POST(req) {
+  const { truth, guess } = await req.json();
   try {
-    const { truth, guess } = await req.json();
-
     const res = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
@@ -44,6 +45,6 @@ export async function POST(req) {
     const clamp = (n) => Math.max(0, Math.min(100, Number(n) || 0));
     return Response.json({ body: clamp(p.body), space: clamp(p.space), condition: clamp(p.condition), note: p.note || '' });
   } catch (e) {
-    return Response.json({ body: 50, space: 50, condition: 50, note: '심판 연결 실패 — 중립 점수로 처리했습니다.' });
+    return Response.json(scoreRestore(truth, guess));
   }
 }

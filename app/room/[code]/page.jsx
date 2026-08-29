@@ -6,7 +6,7 @@ import { useRoom, useGlobalPollution } from '../../../lib/useRoom';
 import {
   BALANCE, POD_SIZE, ROLE_KO, ROLE_BRIEF, PHASE_TIP,
   rolesForSeat, visibleRoles, holderSeat, cycleCount, settleCause,
-  roundScore, newRoundState, meter,
+  roundScore, newRoundState, meter, makeSting, worstQuestion, matchHit, scoreRestore,
 } from '../../../lib/game';
 import { HolderView, ProberView, WatcherView, RestorerView, Tip } from '../../../components/Views';
 
@@ -14,20 +14,38 @@ const NEXT = { deal: 'probe', probe: 'restore', restore: 'settle' };
 const FALLBACK_SIGNAL = { situation: '(이야기 없음)', body: '', space: '', condition: '' };
 
 function DebriefBlock({ round, pts, cause, questions, guess, reveal, scores, holderNote }) {
+  const culprit = worstQuestion(questions);
+  const rows = [
+    { key: 'body', label: '무엇', truth: reveal?.body, guess: guess?.body, score: scores?.body },
+    { key: 'space', label: '어디', truth: reveal?.space, guess: guess?.space, score: scores?.space },
+    { key: 'condition', label: '달라지는 조건', truth: reveal?.condition, guess: guess?.condition, score: scores?.condition },
+  ];
   return (
     <div className="panel accent">
-      <p className="eyebrow">돌아보기 · 라운드 {round}</p>
+      <p className="eyebrow">맞춰 보기 공개 · 라운드 {round}</p>
       <h2>{pts ?? 0}점</h2>
       {cause && <p style={{ color: 'var(--fg)' }}>{cause}</p>}
-      <div className="log"><span className="tag">무엇 · 원래</span>{reveal?.body || '아직 확인 중'}</div>
-      <div className="log"><span className="tag">무엇 · 맞힌 것</span>{guess?.body || '아직 없음'}</div>
-      <div className="log"><span className="tag">어디 · 원래</span>{reveal?.space || '—'}</div>
-      <div className="log"><span className="tag">어디 · 맞힌 것</span>{guess?.space || '아직 없음'}</div>
-      <div className="log"><span className="tag">달라지는 조건 · 원래</span>{reveal?.condition || '—'}</div>
-      <div className="log"><span className="tag">달라지는 조건 · 맞힌 것</span>{guess?.condition || '아직 없음'}</div>
+      {rows.map((r) => {
+        const hit = matchHit(r.score);
+        return (
+          <div key={r.key} className={`log ${hit ? 'hit' : 'miss'}`}>
+            <span className="tag">{hit ? '비슷해요' : '다른 그림'}</span>
+            <strong>{r.label}</strong>
+            {' · '}원래 {r.truth || '—'} / 맞힌 것 {r.guess || '아직 없음'}
+            {typeof r.score === 'number' && ` (${r.score})`}
+          </div>
+        );
+      })}
+      {culprit && culprit.clean < 60 && (
+        <div className="panel warn" style={{ marginTop: 12 }}>
+          <p className="eyebrow">범인 질문</p>
+          <h2 style={{ color: 'var(--taint)' }}>{culprit.text}</h2>
+          <p style={{ color: 'var(--fg)' }}>깨끗한 점수 {culprit.clean}. {culprit.note || '이 질문에 추측이 들어갔어요.'}</p>
+        </div>
+      )}
       {scores?.note && <p style={{ color: 'var(--fg)' }}>{scores.note}</p>}
       {(questions || []).map((q) => (
-        <div key={q.id} className={`log ${q.voided ? 'voided' : ''}`}>
+        <div key={q.id} className={`log ${q.voided ? 'voided' : ''} ${culprit && q.id === culprit.id ? 'hot' : ''}`}>
           <span className="tag">깨끗 {q.clean}{q.voided ? ' · 막힘' : ''}</span>{q.text}
         </div>
       ))}
@@ -81,7 +99,12 @@ export default function Room() {
     if (a.kind === 'question') {
       const q = { id: Date.now(), text: a.text, clean: a.clean, note: a.note, voided: false };
       if (a.clean < 50) pollute(BALANCE.pollutionPerBadQuestion);
-      push({ ...st, questions: [...st.questions, q] });
+      const sting = a.clean < 50
+        ? makeSting('dirty', '추측이 들어갔어요!', a.note || '친구가 안 쓴 말이 섞였어요.')
+        : a.clean >= 90
+          ? makeSting('clean', '깨끗한 질문!', '상대의 말만 썼어요.')
+          : st.sting;
+      push({ ...st, questions: [...st.questions, q], sting });
     }
     if (a.kind === 'answer') push({ ...st, answers: [...st.answers, { text: a.text }] });
     if (a.kind === 'challenge') {
@@ -95,11 +118,44 @@ export default function Room() {
         challengeWins: st.challengeWins + (win ? 1 : 0),
         questions: st.questions.map((x) => (x.id === a.qid ? { ...x, voided: win } : x)),
         phaseEndsAt: win ? st.phaseEndsAt : st.phaseEndsAt - BALANCE.challengePenaltySec * 1000,
+        sting: win
+          ? makeSting('block', '막아냈어요!', '그 추측이 대답에 안 섞여요.')
+          : makeSting('miss', '앗, 그건 깨끗한 질문!', '질문 시간이 15초 줄었어요.'),
       });
     }
-    if (a.kind === 'restoreGuess') push({ ...st, restore: { guess: a.guess } });
+    if (a.kind === 'restoreGuess') {
+      push({
+        ...st,
+        restore: { guess: a.guess },
+        sting: makeSting('guess', '맞춰 보기 제출!', '이야기 주인이 맞는지 보고 있어요.'),
+      });
+    }
     if (a.kind === 'restoreScore') {
       push({ ...st, restore: { ...(st.restore || {}), scores: a.scores, reveal: a.reveal } });
+    }
+    if (a.kind === 'skipDeal' && st.phase === 'deal') {
+      push({
+        ...st,
+        phase: 'probe',
+        phaseEndsAt: Date.now() + BALANCE.phase.probe * 1000,
+        sting: makeSting('go', '질문 시작!', '친구가 말한 단어만 써 보세요.'),
+      });
+    }
+    if (a.kind === 'skipSettle' && st.phase === 'settle') {
+      const totalRounds = st.cycles || BALANCE.rounds;
+      if (st.round >= totalRounds) {
+        push({ ...st, phase: 'end', sting: makeSting('go', '한 바퀴 끝!', '친구가 되살려 준 그림을 같이 말해 봐요.') });
+        return;
+      }
+      push({
+        ...st,
+        ...newRoundState(st.round + 1),
+        started: true,
+        history: st.history,
+        seats: st.seats,
+        cycles: st.cycles,
+        sting: makeSting('go', `라운드 ${st.round + 1}!`, '다음 이야기 주인을 봐요.'),
+      });
     }
   }
 
@@ -117,14 +173,15 @@ export default function Room() {
     if (!myRoles.includes('holder') || !state?.restore?.guess || state.restore.scores || scoringRef.current) return;
     scoringRef.current = true;
     (async () => {
-      let scores = { body: 50, space: 50, condition: 50, note: '' };
+      let scores = scoreRestore(signalRef.current || {}, state.restore.guess);
       try {
         const r = await fetch('/api/restore', {
           method: 'POST', headers: { 'content-type': 'application/json' },
           body: JSON.stringify({ truth: signalRef.current, guess: state.restore.guess }),
         });
-        scores = await r.json();
-      } catch (e) { /* 중립 처리 */ }
+        const remote = await r.json();
+        if (typeof remote.body === 'number') scores = remote;
+      } catch (e) { /* 로컬 채점으로 계속 */ }
       const sg = signalRef.current || {};
       send('action', {
         kind: 'restoreScore',
@@ -144,7 +201,10 @@ export default function Room() {
 
       const totalRounds = st.cycles || BALANCE.rounds;
       if (st.phase === 'settle') {
-        if (st.round >= totalRounds) { push({ ...st, phase: 'end' }); return; }
+        if (st.round >= totalRounds) {
+          push({ ...st, phase: 'end', sting: makeSting('go', '한 바퀴 끝!', '친구가 되살려 준 그림을 같이 말해 봐요.') });
+          return;
+        }
         push({
           ...st,
           ...newRoundState(st.round + 1),
@@ -152,6 +212,7 @@ export default function Room() {
           history: st.history,
           seats: st.seats,
           cycles: st.cycles,
+          sting: makeSting('go', `라운드 ${st.round + 1}!`, '다음 이야기 주인을 봐요.'),
         });
         return;
       }
@@ -177,7 +238,14 @@ export default function Room() {
           scores: s,
         }];
       }
-      push({ ...st, phase, history, phaseEndsAt: Date.now() + BALANCE.phase[phase] * 1000 });
+      const sting = phase === 'probe'
+        ? makeSting('go', '질문 시작!', '친구가 말한 단어만 써 보세요.')
+        : phase === 'restore'
+          ? makeSting('go', '질문은 숨겼어요!', '대답만으로 그림을 맞춰 보세요.')
+          : phase === 'settle'
+            ? makeSting('guess', '공개!', '어느 질문이 그림을 바꿨을까요?')
+            : st.sting;
+      push({ ...st, phase, history, phaseEndsAt: Date.now() + BALANCE.phase[phase] * 1000, sting });
     }, 500);
     return () => clearInterval(t);
   }, [isEngine, push]);
@@ -221,6 +289,7 @@ export default function Room() {
       : conn.mode === 'local' ? '이 컴퓨터 탭끼리' : '여러 기기 연결됨';
   const lastSettle = (state?.history || []).slice(-1)[0];
   const roleTag = myRoles.map((r) => ROLE_KO[r]).join('  +  ');
+  const stingOn = state?.sting && Date.now() - state.sting.at < 4200;
 
   return (
     <div className="wrap">
@@ -281,6 +350,13 @@ export default function Room() {
         </>
       )}
 
+      {state?.started && stingOn && (
+        <div className={`sting ${state.sting.kind}`}>
+          <p className="eyebrow">{state.sting.title}</p>
+          <p>{state.sting.body}</p>
+        </div>
+      )}
+
       {state?.started && state.phase !== 'end' && seated && (
         <>
           <div className="between">
@@ -293,11 +369,15 @@ export default function Room() {
 
           {state.phase === 'deal' && (
             <div className="panel accent">
-              <p className="eyebrow">라운드 {state.round} 시작</p>
+              <p className="eyebrow">라운드 {state.round} · 누구의 소리를 들을까</p>
               <h2>이번 이야기 주인: {sourceName || '정하는 중'}</h2>
               {myRoles.map((r) => (
                 <p key={r} style={{ color: 'var(--fg)' }}>{ROLE_BRIEF[r]}</p>
               ))}
+              <div style={{ height: 10 }} />
+              <button type="button" onClick={() => send('action', { kind: 'skipDeal' })}>
+                바로 질문 시작!
+              </button>
             </div>
           )}
           {state.phase === 'deal' && <Tip>{PHASE_TIP.deal}</Tip>}
@@ -331,6 +411,14 @@ export default function Room() {
           {state.phase === 'settle' && <Tip>{PHASE_TIP.settle}</Tip>}
           {state.phase === 'settle' && (
             <div className="meter clean">{meter(avgClean)} 깨끗한 점수 {avgClean}</div>
+          )}
+          {state.phase === 'settle' && (
+            <div style={{ height: 10 }} />
+          )}
+          {state.phase === 'settle' && (
+            <button type="button" onClick={() => send('action', { kind: 'skipSettle' })}>
+              {state.round >= cycles ? '한 바퀴 끝내기' : '다음 라운드!'}
+            </button>
           )}
         </>
       )}

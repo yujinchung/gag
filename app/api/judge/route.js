@@ -1,3 +1,5 @@
+import { scoreSlots } from '../../../lib/game';
+
 // 질문 청정도 심판. 빠른 응답이 게임 리듬을 만들기 때문에 Haiku를 씁니다.
 const MODEL = 'claude-haiku-4-5';
 
@@ -17,9 +19,8 @@ note는 한국어 한 문장. 오염된 정확한 단어를 지목하고 왜 오
 {"clean": <0-100 정수>, "note": "<한 문장>"}`;
 
 export async function POST(req) {
+  const { question, holderWords = [], answers = [], slots = [] } = await req.json();
   try {
-    const { question, holderWords = [], answers = [] } = await req.json();
-
     const res = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
@@ -48,7 +49,6 @@ export async function POST(req) {
       note: parsed.note || '',
     });
   } catch (e) {
-    // 심판이 죽어도 게임은 멈추지 않습니다. 중립 점수로 통과시킵니다.
-    return Response.json({ clean: 70, note: '심판 연결 실패 — 중립 점수로 처리했습니다.' });
+    return Response.json(scoreSlots(slots, holderWords));
   }
 }

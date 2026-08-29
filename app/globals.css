@@ -151,10 +151,22 @@ label { display: block; font-family: var(--mono); font-size: 11px; letter-spacin
 .row { display: flex; gap: 8px; align-items: center; }
 .between { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
 
-.smog-label {
-  position: fixed; top: 54px; left: 0; right: 0; z-index: 61; text-align: center;
-  font-family: var(--mono); font-size: 12px; letter-spacing: .34em; color: var(--taint);
-  text-shadow: var(--glow); pointer-events: none;
+.sting {
+  padding: 14px 16px; margin: 0 -16px 12px; text-align: center;
+  animation: stingpop .35s ease-out;
+}
+.sting p { color: inherit; margin: 4px 0 0; font-weight: 700; }
+.sting .eyebrow { color: inherit; opacity: .8; }
+.sting.dirty, .sting.miss { background: var(--taint); color: #fff; }
+.sting.clean, .sting.block { background: var(--clean); color: #06100f; }
+.sting.go, .sting.guess { background: var(--fg); color: var(--bg); }
+.log.hot { color: var(--taint); font-weight: 700; }
+.log.hit { color: var(--clean); }
+.log.miss { color: var(--taint); }
+@keyframes stingpop { from { transform: translateY(-8px); opacity: .4; } to { transform: none; opacity: 1; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .sting { animation: none; }
 }
 
 @media (prefers-reduced-motion: reduce) {

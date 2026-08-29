@@ -1,6 +1,6 @@
 'use client';
 import { useState } from 'react';
-import { TEMPLATES, fillTemplate, holderVocabulary, meter, BALANCE, cleanStreak, ROLE_TIP } from '../lib/game';
+import { TEMPLATES, fillTemplate, holderVocabulary, meter, BALANCE, cleanStreak, ROLE_TIP, scoreSlots } from '../lib/game';
 import { fogText } from '../lib/useRoom';
 
 export function Tip({ children }) {
@@ -29,6 +29,13 @@ export function HolderView({ st, send, smog, signal }) {
       </div>
 
       <Tip>{ROLE_TIP.holder}</Tip>
+
+      {last && last.clean < 50 && (
+        <div className="panel warn">
+          <p className="eyebrow">추측이 들어왔어요 · 따라가지 마</p>
+          <p style={{ color: 'var(--fg)' }}>{last.note || '이 질문에 친구가 안 쓴 말이 있어요. 그 단어를 대답에 넣지 마.'}</p>
+        </div>
+      )}
 
       <div className="panel">
         <p className="eyebrow">지금 온 질문</p>
@@ -62,14 +69,18 @@ export function ProberView({ st, send, smog, starter }) {
   async function ask() {
     const text = fillTemplate(tpl, x, y);
     setBusy(true);
-    let judged = { clean: 70, note: '' };
+    const slots = [x, y];
+    let judged = scoreSlots(slots, vocab);
     try {
       const r = await fetch('/api/judge', {
         method: 'POST', headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ question: text, holderWords: vocab, answers: st.answers.map((a) => a.text) }),
+        body: JSON.stringify({
+          question: text, holderWords: vocab, answers: st.answers.map((a) => a.text), slots,
+        }),
       });
-      judged = await r.json();
-    } catch (e) { /* 심판이 죽어도 게임은 계속됩니다 */ }
+      const remote = await r.json();
+      if (typeof remote.clean === 'number' && remote.note) judged = remote;
+    } catch (e) { /* 로컬 채점으로 계속 */ }
     send('action', { kind: 'question', text, ...judged });
     setBusy(false); setX(''); setY('');
   }
@@ -104,7 +115,7 @@ export function ProberView({ st, send, smog, starter }) {
         <div className="tpl-grid">
           {TEMPLATES.map((t) => (
             <button key={t.id} className={`tpl ${tpl.id === t.id ? 'on' : ''}`} onClick={() => setTpl(t)}>
-              {t.text.replace('{X}', 'X').replace('{Y}', 'Y')}
+              {t.text.replaceAll('{X}', 'X').replaceAll('{Y}', 'Y')}
             </button>
           ))}
         </div>
@@ -139,7 +150,7 @@ export function ProberView({ st, send, smog, starter }) {
       {last && (
         <div className={`panel ${last.clean < 60 ? 'warn' : ''}`}>
           <div className="between">
-            <span className="eyebrow">방금 질문</span>
+            <span className="eyebrow">{last.clean < 50 ? '앗, 추측이 섞였어요' : '방금 질문'}</span>
             <span className="num" style={{ color: last.clean < 60 ? 'var(--taint)' : 'var(--clean)' }}>{last.clean}</span>
           </div>
           <p style={{ color: 'var(--fg)' }}>{last.note}</p>
@@ -184,20 +195,22 @@ export function WatcherView({ st, send, pollution, crossWatch }) {
             {'●'.repeat(st.challengesLeft)}{'○'.repeat(BALANCE.challengesPerRound - st.challengesLeft)}
           </span>
         </div>
-        <p style={{ fontSize: 13 }}>막기 성공: 공기 조금 맑아짐, +15점. 실패: 질문 시간 15초 줄어듦.</p>
-        {[...st.questions].reverse().map((q) => (
-          <div key={q.id} className={`log ${q.voided ? 'voided' : ''}`}>
-            <span className="tag">깨끗 {q.clean}</span>{q.text}
+        <p style={{ fontSize: 13 }}>방금 온 질문을 빨리 막으면 그림이 안 바뀌어요. 실패하면 질문 시간이 15초 줄어요.</p>
+        {[...st.questions].reverse().map((q, i) => (
+          <div key={q.id} className={`log ${q.voided ? 'voided' : ''} ${i === 0 && !q.voided ? 'hot' : ''}`}>
+            <span className="tag">{i === 0 && !q.voided ? '방금' : `깨끗 ${q.clean}`}</span>
+            {i === 0 && !q.voided && <span className="tag">깨끗 {q.clean}</span>}
+            {q.text}
             {!q.voided && st.challengesLeft > 0 && (
               <div style={{ marginTop: 6 }}>
-                <button className="small danger" onClick={() => send('action', { kind: 'challenge', qid: q.id })}>
+                <button className={i === 0 ? 'danger' : 'small danger'} onClick={() => send('action', { kind: 'challenge', qid: q.id })}>
                   이 질문은 추측이야
                 </button>
               </div>
             )}
           </div>
         ))}
-        {!st.questions.length && <p>아직 질문이 없어요.</p>}
+        {!st.questions.length && <p>아직 질문이 없어요. 추측이 들어오면 여기서 막아요.</p>}
       </div>
     </>
   );
@@ -211,12 +224,14 @@ export function RestorerView({ st, send, smog }) {
   return (
     <>
       <div className="panel accent">
-        <p className="eyebrow">대답만 보여요 · 질문은 숨겼어요</p>
+        <p className="eyebrow">{st.phase === 'probe' ? '듣는 중 · 질문은 비밀' : '대답만 보여요 · 질문은 숨겼어요'}</p>
         {st.answers.map((a, i) => <div key={i} className="log"><span className="tag">A{i + 1}</span>{fogText(a.text, smog)}</div>)}
-        {!st.answers.length && <p>아직 대답이 없어요.</p>}
+        {!st.answers.length && (
+          <p>{st.phase === 'probe' ? '대답이 오면 마음속에 그림을 그려 보세요. 질문은 보면 안 돼요.' : '아직 대답이 없어요.'}</p>
+        )}
       </div>
 
-      <Tip>{ROLE_TIP.restorer}</Tip>
+      <Tip>{st.phase === 'probe' ? '지금은 듣기만. 질문이 새어 들어오면 그림이 바뀌어요. 대답에만 나온 말을 기억해.' : ROLE_TIP.restorer}</Tip>
 
       <div className="panel">
         <label>그것은 무엇과 같았나요</label>
@@ -228,7 +243,7 @@ export function RestorerView({ st, send, smog }) {
         <div style={{ height: 12 }} />
         <button onClick={() => send('action', { kind: 'restoreGuess', guess: g })}
           disabled={sent || st.phase !== 'restore'}>
-          {sent ? '보냈어요 · 맞는지 보는 중' : st.phase === 'restore' ? '맞춰 보기' : '맞혀 보는 시간에 열려요'}
+          {sent ? '보냈어요 · 맞는지 보는 중' : st.phase === 'restore' ? '이게 그 그림이야!' : '맞혀 보는 시간에 열려요'}
         </button>
       </div>
       <p style={{ fontSize: 13 }}>맞았는지는 이야기 주인 화면에서 확인해요.</p>

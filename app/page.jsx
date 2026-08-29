@@ -62,6 +62,13 @@ export default function Home() {
               그래서 그 사람의 마음속 소리가 그대로 들려요.
             </p>
           </div>
+          <div className="panel warn">
+            <p className="eyebrow">이런 순간에 웃어요</p>
+            <p style={{ color: 'var(--fg)' }}>
+              질문하는 친구가 “힘들었겠다”처럼 자기 생각을 넣는 순간, 맞혀 보는 사람은 그게 진짜 그림인 줄 알아요.
+              그 추측을 찾아내는 게임이에요.
+            </p>
+          </div>
           <button onClick={() => setStep(1)}>내 이야기 쓰기</button>
         </>
       )}
