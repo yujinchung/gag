@@ -88,7 +88,7 @@ export default function Home() {
             <input value={sig.situation} onChange={(e) => setSig({ ...sig, situation: e.target.value })}
               placeholder="예: 숙제가 며칠째 그대로야" />
 
-            <p className="eyebrow" style={{ marginTop: 18 }}>이제 그림으로 바꿔 봐요</p>
+            <p className="eyebrow" style={{ marginTop: 18 }}>메타포를 사용해봐요</p>
             <label>그것은 무엇과 같나요</label>
             <input value={sig.body} onChange={(e) => setSig({ ...sig, body: e.target.value })}
               placeholder="예: 젖은 성냥" />
@@ -102,7 +102,7 @@ export default function Home() {
 
           <button className="ghost small" onClick={pullFromDeck}>생각이 안 나면 여기서 고르기</button>
           <p style={{ fontSize: 13 }}>
-            여기서 고른 이야기는 다른 사람 것이에요. 그래도 게임은 같고, 아무도 네 것인지 묻지 않아요.
+            이건 예시예요. 골라도 게임하는 데 지장 없어요.
           </p>
           <div style={{ height: 10 }} />
           <button onClick={() => setStep(2)} disabled={!ready}>다음</button>
@@ -128,7 +128,7 @@ export default function Home() {
             새 방 만들기
           </button>
           <p style={{ fontSize: 13 }}>
-            네 이야기 원문은 이 기기에만 있어요. 혼자여도 시작할 수 있어요.
+            안심하세요. 내가 적은 내용은 내 기기에만 있어요. 혼자여도 시작 가능!
           </p>
         </>
       )}
