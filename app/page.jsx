@@ -32,7 +32,7 @@ export default function Home() {
       <div className="bar">
         <span>C L E A N &nbsp; R O O M</span>
         <span className="spacer" />
-        <span>마음속 그림 맞히기</span>
+        <span>마음속 소리 듣기</span>
       </div>
 
       {!isRealtimeConfigured() && (
@@ -55,10 +55,10 @@ export default function Home() {
             </p>
           </div>
           <div className="panel tip">
-            <p className="eyebrow">어떻게 해요?</p>
+            <p className="eyebrow">Clean Language란</p>
             <p style={{ color: 'var(--fg)' }}>
-              한 친구의 마음속 그림을, 그 친구가 쓴 말로만 되살려 보세요.
-              들어갈 방에선 네 할 일이 화면에 나와요.
+              상대가 말한 단어만 받아서 묻는 말이에요. 내 해석이나 “이런 거지?”는 넣지 않아요.
+              그래서 그 사람의 마음속 소리가 그대로 들려요.
             </p>
           </div>
           <button onClick={() => setStep(1)}>내 이야기 쓰기</button>
@@ -101,9 +101,6 @@ export default function Home() {
           </div>
 
           <button className="ghost small" onClick={pullFromDeck}>생각이 안 나면 여기서 고르기</button>
-          <p style={{ fontSize: 13 }}>
-            이건 예시예요. 골라도 게임하는 데 지장 없어요.
-          </p>
           <div style={{ height: 10 }} />
           <button onClick={() => setStep(2)} disabled={!ready}>다음</button>
         </>
@@ -113,6 +110,13 @@ export default function Home() {
         <>
           <p className="eyebrow">02 / 방 들어가기</p>
           <h1>친구와 같은 방</h1>
+          <div className="panel tip">
+            <p className="eyebrow">방을 왜 만들까요</p>
+            <p style={{ color: 'var(--fg)' }}>
+              같은 코드를 가진 친구끼리 모여, 한 사람의 마음속 소리를 함께 듣기 위해서예요.
+              방 안에서는 질문하는 사람, 대답하는 사람, 맞혀 보는 사람이 나뉘어요.
+            </p>
+          </div>
           <div className="panel accent">
             <label htmlFor="nm">이름</label>
             <input id="nm" value={name} onChange={(e) => setName(e.target.value)} placeholder="화면에 보일 이름" />
