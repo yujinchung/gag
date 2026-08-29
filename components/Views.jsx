@@ -1,6 +1,6 @@
 'use client';
 import { useState } from 'react';
-import { TEMPLATES, fillTemplate, holderVocabulary, meter, BALANCE } from '../lib/game';
+import { TEMPLATES, fillTemplate, holderVocabulary, meter, BALANCE, cleanStreak } from '../lib/game';
 import { fogText } from '../lib/useRoom';
 
 // ── SOURCE ── 자기 시그널 원문은 자기 기기에만 있습니다. 전송되지 않습니다.
@@ -36,7 +36,7 @@ export function HolderView({ st, send, smog, signal }) {
 }
 
 // ── PROBE ── 승인된 12패턴, 원본이 발신한 단어만.
-export function ProberView({ st, send, smog }) {
+export function ProberView({ st, send, smog, starter }) {
   const [tpl, setTpl] = useState(TEMPLATES[0]);
   const [x, setX] = useState('');
   const [y, setY] = useState('');
@@ -46,6 +46,7 @@ export function ProberView({ st, send, smog }) {
   const avg = scores.length ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : 100;
   const last = st.questions.slice(-1)[0];
   const waiting = st.questions.filter((q) => !q.voided).length > st.answers.length;
+  const streak = cleanStreak(st.questions);
 
   async function ask() {
     const text = fillTemplate(tpl, x, y);
@@ -70,9 +71,18 @@ export function ProberView({ st, send, smog }) {
           <span className="num" style={{ color: avg < 60 ? 'var(--taint)' : 'var(--clean)' }}>{avg}</span>
         </div>
         <div className={`meter ${avg < 60 ? 'taint' : 'clean'}`}>{meter(avg)}</div>
+        {streak >= 2 && <p style={{ fontSize: 13, color: 'var(--clean)' }}>청정 연속 {streak}</p>}
+      </div>
+
+      <div className="panel">
+        <p className="eyebrow">단어장 · 원본이 발신한 단어 {vocab.length}</p>
+        {vocab.length
+          ? <div className="log">{vocab.map((w) => <span key={w} className="tag">{w}</span>)}</div>
+          : <p>첫 질의는 자유 입력. 응답이 쌓이면 슬롯만 쓸 수 있습니다.</p>}
       </div>
 
       <div className="panel accent">
+        {starter && <p className="eyebrow">이 패턴으로 시작</p>}
         <p className="eyebrow">승인 질의 패턴 12</p>
         <div className="tpl-grid">
           {TEMPLATES.map((t) => (
@@ -151,8 +161,11 @@ export function WatcherView({ st, send, pollution, crossWatch }) {
       <div className="panel">
         <div className="between">
           <span className="eyebrow">질의 로그</span>
-          <span className="num">차단권 {'●'.repeat(st.challengesLeft)}{'○'.repeat(BALANCE.challengesPerRound - st.challengesLeft)}</span>
+          <span className="num" style={{ fontSize: 22, letterSpacing: '.12em' }}>
+            {'●'.repeat(st.challengesLeft)}{'○'.repeat(BALANCE.challengesPerRound - st.challengesLeft)}
+          </span>
         </div>
+        <p style={{ fontSize: 13 }}>차단 성공: 대기 오염 −3%, +15점. 실패: 탐문 시간 15초 손실.</p>
         {[...st.questions].reverse().map((q) => (
           <div key={q.id} className={`log ${q.voided ? 'voided' : ''}`}>
             <span className="tag">청정 {q.clean}</span>{q.text}
@@ -167,7 +180,6 @@ export function WatcherView({ st, send, pollution, crossWatch }) {
         ))}
         {!st.questions.length && <p>질의 없음.</p>}
       </div>
-      <p style={{ fontSize: 13 }}>차단 성공 +15점, 대기 오염 −3%. 실패 시 탐침 시간 15초 손실.</p>
     </>
   );
 }

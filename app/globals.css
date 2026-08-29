@@ -103,8 +103,8 @@ p { line-height: 1.6; color: var(--mut); margin: 6px 0; }
 
 .role-tag {
   display: inline-block; font-family: var(--mono); font-size: 12px;
-  letter-spacing: .18em; padding: 3px 9px;
-  background: var(--fg); color: var(--bg);
+  letter-spacing: .08em; padding: 3px 9px; line-height: 1.45;
+  background: var(--fg); color: var(--bg); white-space: normal;
 }
 
 button {

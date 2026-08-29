@@ -3,11 +3,39 @@ import { useEffect, useRef, useState, useCallback } from 'react';
 import { useParams } from 'next/navigation';
 import { useRoom, useGlobalPollution } from '../../../lib/useRoom';
 import {
-  BALANCE, POD_SIZE, ROLE_LABEL, ROLE_KO, ROLE_BRIEF, roleFor, roundScore, newRoundState, meter,
+  BALANCE, POD_SIZE, ROLE_LABEL, ROLE_KO, ROLE_BRIEF,
+  rolesForSeat, visibleRoles, holderSeat, cycleCount, settleCause,
+  roundScore, newRoundState, meter,
 } from '../../../lib/game';
 import { HolderView, ProberView, WatcherView, RestorerView } from '../../../components/Views';
 
 const NEXT = { deal: 'probe', probe: 'restore', restore: 'settle' };
+const FALLBACK_SIGNAL = { situation: '(시그널 미등록)', body: '', space: '', condition: '' };
+
+function DebriefBlock({ round, pts, cause, questions, guess, reveal, scores, holderNote }) {
+  return (
+    <div className="panel accent">
+      <p className="eyebrow">대조 결과 · 사이클 {round}</p>
+      <h2>{pts ?? 0}</h2>
+      {cause && <p style={{ color: 'var(--fg)' }}>{cause}</p>}
+      <div className="log"><span className="tag">본체 원본</span>{reveal?.body || '대조 중'}</div>
+      <div className="log"><span className="tag">본체 복원</span>{guess?.body || '미전송'}</div>
+      <div className="log"><span className="tag">공간 원본</span>{reveal?.space || '—'}</div>
+      <div className="log"><span className="tag">공간 복원</span>{guess?.space || '미전송'}</div>
+      <div className="log"><span className="tag">조건 원본</span>{reveal?.condition || '—'}</div>
+      <div className="log"><span className="tag">조건 복원</span>{guess?.condition || '미전송'}</div>
+      {scores?.note && <p style={{ color: 'var(--fg)' }}>{scores.note}</p>}
+      {(questions || []).map((q) => (
+        <div key={q.id} className={`log ${q.voided ? 'voided' : ''}`}>
+          <span className="tag">청정 {q.clean}{q.voided ? ' · 차단' : ''}</span>{q.text}
+        </div>
+      ))}
+      {holderNote && (
+        <p style={{ fontSize: 13 }}>당신의 문제 원문은 공개되지 않았습니다. 말하고 싶으면 지금 팀에게 직접 말하세요.</p>
+      )}
+    </div>
+  );
+}
 
 export default function Room() {
   const { code } = useParams();
@@ -26,7 +54,7 @@ export default function Room() {
   const [total, setTotal] = useState(0);
   const [avgClean, setAvgClean] = useState(100);
 
-  const { pod, seatIndex, state, setState, isEngine, send, conn, overflow } = useRoom({
+  const { pod, me, state, setState, isEngine, send, conn, overflow } = useRoom({
     code, name, onAction: (a) => engineRef.current && applyAction(a),
   });
   engineRef.current = isEngine;
@@ -35,7 +63,6 @@ export default function Room() {
 
   const { pollution, smog, pollute } = useGlobalPollution({ podCode: code, score: total, clean: avgClean });
 
-  // 화면 자체가 오염 게이지입니다.
   useEffect(() => {
     document.body.dataset.air = smog ? 'smog' : pollution >= 35 ? 'haze' : 'clear';
     return () => { document.body.dataset.air = 'clear'; };
@@ -75,10 +102,18 @@ export default function Room() {
     }
   }
 
-  // 대조는 원본 보유자 기기에서만. 시그널 원문은 팟에 전송되지 않습니다.
+  const roster = state?.seats?.length ? state.seats : pod;
+  const seatIndex = me ? roster.findIndex((m) => m.id === me.id) : -1;
+  const nSeats = Math.max(1, roster.length);
+  const myRoles = state?.started && seatIndex >= 0
+    ? rolesForSeat(seatIndex, state.round, nSeats)
+    : [];
+  const shown = visibleRoles(myRoles, state?.phase);
+  const cycles = state?.cycles || cycleCount(nSeats);
+  const playSignal = signal || FALLBACK_SIGNAL;
+
   useEffect(() => {
-    const role = state?.started ? roleFor(seatIndex, state.round) : null;
-    if (role !== 'holder' || !state?.restore?.guess || state.restore.scores || scoringRef.current) return;
+    if (!myRoles.includes('holder') || !state?.restore?.guess || state.restore.scores || scoringRef.current) return;
     scoringRef.current = true;
     (async () => {
       let scores = { body: 50, space: 50, condition: 50, note: '' };
@@ -93,12 +128,11 @@ export default function Room() {
       send('action', {
         kind: 'restoreScore',
         scores,
-        // 은유 3요소만 공개합니다. 문제 원문은 원본 보유자만 봅니다.
         reveal: { body: sg.body, space: sg.space, condition: sg.condition },
       });
       scoringRef.current = false;
     })();
-  }, [state, seatIndex, send]);
+  }, [state, myRoles, send]);
 
   useEffect(() => {
     if (!isEngine) return;
@@ -107,9 +141,17 @@ export default function Room() {
       if (!st || !st.started || st.phase === 'end') return;
       if (Date.now() < st.phaseEndsAt) return;
 
+      const totalRounds = st.cycles || BALANCE.rounds;
       if (st.phase === 'settle') {
-        if (st.round >= BALANCE.rounds) { push({ ...st, phase: 'end' }); return; }
-        push({ ...st, ...newRoundState(st.round + 1), started: true, history: st.history });
+        if (st.round >= totalRounds) { push({ ...st, phase: 'end' }); return; }
+        push({
+          ...st,
+          ...newRoundState(st.round + 1),
+          started: true,
+          history: st.history,
+          seats: st.seats,
+          cycles: st.cycles,
+        });
         return;
       }
       const phase = NEXT[st.phase];
@@ -121,8 +163,18 @@ export default function Room() {
           cleanScores: st.questions.filter((q) => !q.voided).map((q) => q.clean),
           challengeWins: st.challengeWins,
           round: st.round,
+          totalRounds,
         });
-        history = [...history, { round: st.round, pts, note: s.note || '' }];
+        history = [...history, {
+          round: st.round,
+          pts,
+          note: s.note || '',
+          cause: settleCause(st),
+          questions: st.questions,
+          guess: st.restore?.guess,
+          reveal: st.restore?.reveal,
+          scores: s,
+        }];
       }
       push({ ...st, phase, history, phaseEndsAt: Date.now() + BALANCE.phase[phase] * 1000 });
     }, 500);
@@ -145,20 +197,29 @@ export default function Room() {
   }, [state]);
 
   const start = () => {
-    if (pod.length < POD_SIZE) return;
-    push({ started: true, history: [], ...newRoundState(1) });
+    const seats = pod.slice(0, POD_SIZE);
+    if (!seats.length) return;
+    push({
+      started: true,
+      history: [],
+      seats: seats.map(({ id, name: nm }) => ({ id, name: nm })),
+      cycles: cycleCount(seats.length),
+      ...newRoundState(1),
+    });
   };
+
   const mmss = `${String(Math.floor(left / 60)).padStart(2, '0')}:${String(left % 60).padStart(2, '0')}`;
   const seated = seatIndex >= 0;
-  const role = state?.started && seated ? roleFor(seatIndex, state.round) : null;
   const sourceName = state?.started
-    ? pod.find((_, i) => roleFor(i, state.round) === 'holder')?.name
+    ? roster[holderSeat(state.round, nSeats)]?.name
     : null;
   const connLabel = conn.status === 'error'
-    ? '연결 실패'
+    ? '연결 실패 · 이 기기에서 진행'
     : conn.status === 'connecting' || conn.status === 'idle'
       ? '연결 중'
       : conn.mode === 'local' ? '로컬 탭 연결' : '실시간 연결';
+  const lastSettle = (state?.history || []).slice(-1)[0];
+  const roleTag = myRoles.map((r) => `${ROLE_LABEL[r]} · ${ROLE_KO[r]}`).join('  +  ');
 
   return (
     <div className="wrap">
@@ -166,7 +227,7 @@ export default function Room() {
 
       <div className="bar">
         <span>POD {code}</span>
-        {state?.started && <span>CYCLE {state.round}/{BALANCE.rounds}</span>}
+        {state?.started && <span>CYCLE {state.round}/{cycles}</span>}
         <span className="spacer" />
         <span>{connLabel}</span>
         {state?.started && <span className={`timer ${left <= 10 ? 'low' : ''}`}>{mmss}</span>}
@@ -176,33 +237,33 @@ export default function Room() {
         <>
           <p className="eyebrow">대기실 · 정화팀 편성</p>
           <h1>POD {code}</h1>
-          <p>4명이 같은 코드로 접속하면 개시합니다. 이 코드를 팀원 3명에게 전달하세요.</p>
+          <p>1명이어도 개시할 수 있습니다. 빈 역할은 탐문/복원 단계로 나눕니다. 진행 기기를 새로고침하면 이 팟은 리셋됩니다.</p>
           <div className="panel">
             {Array.from({ length: POD_SIZE }, (_, i) => {
               const m = pod[i];
               return (
                 <div key={m?.id || `seat-${i}`} className={`log ${m ? '' : 'waiting'}`}>
                   <span className="tag">{String(i + 1).padStart(2, '0')}</span>
-                  {m ? m.name : '대기 중…'}
+                  {m ? m.name : '비움'}
                   {i === 0 && m && <span className="tag" style={{ marginLeft: 8 }}>진행 기기</span>}
                 </div>
               );
             })}
           </div>
           {overflow && (
-            <p>이 팟은 {POD_SIZE}명입니다. 먼저 들어온 {POD_SIZE}명이 플레이합니다.</p>
+            <p>앞 {POD_SIZE}명이 플레이하고, 나머지는 정산 기록을 봅니다.</p>
           )}
           {conn.status === 'error' && (
             <div className="panel warn">
-              <p className="eyebrow">연결 실패</p>
-              <p style={{ color: 'var(--fg)' }}>실시간 채널에 붙지 못했습니다. 네트워크와 Supabase 키를 확인하세요.</p>
+              <p className="eyebrow">실시간 실패</p>
+              <p style={{ color: 'var(--fg)' }}>이 기기에서 로컬로 진행합니다. 같은 브라우저 탭끼리는 로컬 모드로 붙습니다.</p>
             </div>
           )}
           {conn.mode === 'local' && conn.status === 'subscribed' && (
             <div className="panel">
               <p className="eyebrow">로컬 모드</p>
               <p style={{ color: 'var(--fg)' }}>
-                이 브라우저의 탭끼리만 연결됩니다. 탭을 4개 열고 같은 코드로 들어오면 동시에 대기실에 모입니다.
+                이 브라우저의 탭끼리만 연결됩니다. 탭을 더 열면 역할을 나눕니다.
               </p>
             </div>
           )}
@@ -212,60 +273,84 @@ export default function Room() {
             </button>
           </div>
           {isEngine
-            ? <button onClick={start} disabled={pod.length < POD_SIZE}>정화 개시 ({pod.length}/{POD_SIZE})</button>
-            : <p>{pod.length < POD_SIZE ? `나머지 ${POD_SIZE - pod.length}명 접속을 기다리는 중.` : '진행 기기의 개시 신호를 기다리는 중.'}</p>}
-          {!signal && <p style={{ color: 'var(--taint)' }}>시그널이 등록되지 않았습니다. 첫 화면으로 돌아가 등록하세요.</p>}
+            ? <button onClick={start} disabled={pod.length < 1}>정화 개시 ({pod.length}/{POD_SIZE})</button>
+            : <p>진행 기기의 개시 신호를 기다리는 중. 1명이어도 시작할 수 있습니다.</p>}
+          {!signal && <p style={{ color: 'var(--taint)' }}>시그널이 없으면 빈 원본으로 연습합니다. 가능하면 첫 화면에서 등록하세요.</p>}
         </>
       )}
 
       {state?.started && state.phase !== 'end' && seated && (
         <>
           <div className="between">
-            <span className="role-tag">{ROLE_LABEL[role]} · {ROLE_KO[role]}</span>
+            <span className="role-tag">{roleTag}</span>
             <span className="num">{total}</span>
           </div>
-          <p style={{ fontSize: 13 }}>{ROLE_BRIEF[role]}</p>
+          {nSeats === 1 && (
+            <p style={{ fontSize: 13 }}>1인 연습 — 원본을 아는 채로 복원합니다. 복원 단계에서는 질의가 가려집니다.</p>
+          )}
 
           {state.phase === 'deal' && (
             <div className="panel accent">
               <p className="eyebrow">사이클 {state.round} 개시</p>
               <h2>이번 사이클의 원본: {sourceName || '배정 중'}</h2>
-              <p>{ROLE_BRIEF[role]}</p>
+              {myRoles.map((r) => (
+                <p key={r} style={{ color: 'var(--fg)' }}>{ROLE_BRIEF[r]}</p>
+              ))}
             </div>
           )}
 
           {(state.phase === 'probe' || state.phase === 'restore') && (
             <>
-              {role === 'holder' && signal && <HolderView st={state} send={send} smog={smog} signal={signal} />}
-              {role === 'prober' && <ProberView st={state} send={send} smog={smog} />}
-              {role === 'watcher' && (
-                <WatcherView st={state} send={send} pollution={pollution}
-                  crossWatch={state.round === BALANCE.crossWatchRound} />
+              {shown.includes('holder') && <HolderView st={state} send={send} smog={smog} signal={playSignal} />}
+              {shown.includes('prober') && <ProberView st={state} send={send} smog={smog} starter={state.round === 1} />}
+              {shown.includes('watcher') && (
+                <WatcherView st={state} send={send} pollution={pollution} />
               )}
-              {role === 'restorer' && <RestorerView st={state} send={send} smog={smog} />}
+              {shown.includes('restorer') && <RestorerView st={state} send={send} smog={smog} />}
+              {state.phase === 'restore' && !shown.length && (
+                <p>복원 단계입니다. 질의는 가려져 있습니다.</p>
+              )}
             </>
           )}
 
           {state.phase === 'settle' && (
-            <div className="panel accent">
-              <p className="eyebrow">대조 결과 · 사이클 {state.round}</p>
-              <h2>{(state.history || []).slice(-1)[0]?.pts ?? 0}</h2>
-              <div className="log"><span className="tag">원본</span>{state.restore?.reveal?.body || '대조 중'}</div>
-              <div className="log"><span className="tag">복원</span>{state.restore?.guess?.body || '미전송'}</div>
-              <p style={{ color: 'var(--fg)' }}>{state.restore?.scores?.note}</p>
-              <div className="meter clean">{meter(avgClean)} 청정 {avgClean}</div>
-              {role === 'holder' && (
-                <p style={{ fontSize: 13 }}>당신의 문제 원문은 공개되지 않았습니다. 말하고 싶으면 지금 팀에게 직접 말하세요.</p>
-              )}
-            </div>
+            <DebriefBlock
+              round={state.round}
+              pts={lastSettle?.pts ?? 0}
+              cause={lastSettle?.cause}
+              questions={lastSettle?.questions || state.questions}
+              guess={lastSettle?.guess || state.restore?.guess}
+              reveal={lastSettle?.reveal || state.restore?.reveal}
+              scores={lastSettle?.scores || state.restore?.scores}
+              holderNote={myRoles.includes('holder')}
+            />
+          )}
+          {state.phase === 'settle' && (
+            <div className="meter clean">{meter(avgClean)} 청정 {avgClean}</div>
           )}
         </>
       )}
 
       {state?.started && !seated && (
-        <div className="panel warn">
-          <p className="eyebrow">관전</p>
-          <p style={{ color: 'var(--fg)' }}>이 팟은 이미 4명이 편성됐습니다. 플레이 자리는 없습니다.</p>
+        <div className="panel">
+          <p className="eyebrow">기록</p>
+          <p style={{ color: 'var(--fg)' }}>플레이 자리는 앞 {POD_SIZE}명입니다. 정산에서 질의와 복원을 함께 돌아보세요.</p>
+          {(state.questions || []).map((q) => (
+            <div key={q.id} className={`log ${q.voided ? 'voided' : ''}`}>
+              <span className="tag">청정 {q.clean}</span>{q.text}
+            </div>
+          ))}
+          {state.phase === 'settle' && lastSettle && (
+            <DebriefBlock
+              round={state.round}
+              pts={lastSettle.pts}
+              cause={lastSettle.cause}
+              questions={lastSettle.questions}
+              guess={lastSettle.guess}
+              reveal={lastSettle.reveal}
+              scores={lastSettle.scores}
+            />
+          )}
         </div>
       )}
 
@@ -274,12 +359,21 @@ export default function Room() {
           <p className="eyebrow">정화 종료</p>
           <h1>{total}</h1>
           {(state.history || []).map((h) => (
-            <div key={h.round} className="log"><span className="tag">C{h.round}</span>{h.pts} — {h.note}</div>
+            <DebriefBlock
+              key={h.round}
+              round={h.round}
+              pts={h.pts}
+              cause={h.cause || h.note}
+              questions={h.questions}
+              guess={h.guess}
+              reveal={h.reveal}
+              scores={h.scores}
+            />
           ))}
           <div className="panel accent" style={{ marginTop: 16 }}>
             <p className="eyebrow">최종 보고</p>
             <p style={{ color: 'var(--fg)' }}>
-              네 사람의 시그널이 한 번씩 복원됐습니다. 지금 팟에서 한 사람씩 답하세요 —
+              지금 팟에서 한 사람씩 답하세요 —
               <strong> 남이 복원해준 내 은유를 들었을 때 무엇이 올라왔습니까?</strong>
             </p>
           </div>

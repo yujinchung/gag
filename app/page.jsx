@@ -39,9 +39,7 @@ export default function Home() {
         <div className="panel">
           <p className="eyebrow">로컬 모드</p>
           <p style={{ color: 'var(--fg)' }}>
-            Supabase 키가 없어 이 브라우저의 탭끼리만 연결됩니다. 탭을 4개 열고 같은 팟 코드로
-            들어오면 대기실에 동시에 모입니다. 다른 기기와 붙이려면
-            NEXT_PUBLIC_SUPABASE_URL과 NEXT_PUBLIC_SUPABASE_ANON_KEY를 등록하세요.
+            이 브라우저의 탭끼리만 연결됩니다. 1명이어도 바로 시작할 수 있습니다.
           </p>
         </div>
       )}
@@ -52,14 +50,8 @@ export default function Home() {
           <h1>오염 탐지기</h1>
           <div className="panel accent">
             <p style={{ color: 'var(--fg)', lineHeight: 1.75 }}>
-              2087년. 언어가 오염됐다.<br />
-              사람들은 여전히 말하지만, 말은 더 이상 원본에 도착하지 않는다.
-              누군가 말을 꺼내면 듣는 사람의 해석이 달라붙고, 되돌아온 문장에는
-              원래 그게 누구의 것이었는지 아무도 알 수 없다.<br /><br />
-              당신은 정화국 4인 팀이다. 임무는 하나.<br />
-              <strong style={{ color: 'var(--neon)' }}>
-                한 사람의 시그널을, 당신의 언어를 단 한 글자도 섞지 않고 복원하라.
-              </strong>
+              한 사람의 시그널을, 당신의 언어를 한 글자도 섞지 않고 복원하라.
+              상대가 쓴 단어만 쓴다. 할 일은 접속 후 화면에 나온다.
             </p>
           </div>
           <button onClick={() => setStep(1)}>시그널 등록</button>
@@ -129,7 +121,7 @@ export default function Home() {
             새 팟 개설
           </button>
           <p style={{ fontSize: 13 }}>
-            당신의 시그널 원문은 당신 기기에만 있습니다. 팀에게는 당신의 응답만 전송됩니다.
+            시그널 원문은 당신 기기에만 있습니다. 1명이어도 바로 플레이할 수 있습니다.
           </p>
         </>
       )}
