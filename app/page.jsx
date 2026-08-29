@@ -48,8 +48,7 @@ export default function Home() {
 
       {step === 0 && (
         <>
-          <p className="eyebrow">마음속 소리 듣기</p>
-          <h1>클린 랭귀지</h1>
+          <h1>클린 랭귀지 오염 탐지기</h1>
           <div className="panel accent">
             <p style={{ color: 'var(--fg)', lineHeight: 1.75 }}>
               이 게임은 Clean Language를 배우는 게임이에요.
