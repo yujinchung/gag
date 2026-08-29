@@ -30,7 +30,9 @@ export default function Home() {
   return (
     <div className="wrap">
       <div className="bar">
-        <span>C L E A N &nbsp; R O O M</span>
+        <button type="button" className="brand" onClick={() => setStep(0)}>
+          C L E A N &nbsp; R O O M
+        </button>
         <span className="spacer" />
         <span>마음속 소리 듣기</span>
       </div>
@@ -46,8 +48,8 @@ export default function Home() {
 
       {step === 0 && (
         <>
-          <p className="eyebrow">Clean Language</p>
-          <h1>오염 탐지기</h1>
+          <p className="eyebrow">마음속 소리 듣기</p>
+          <h1>클린 랭귀지</h1>
           <div className="panel accent">
             <p style={{ color: 'var(--fg)', lineHeight: 1.75 }}>
               이 게임은 Clean Language를 배우는 게임이에요.

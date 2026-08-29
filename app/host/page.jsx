@@ -1,5 +1,6 @@
 'use client';
 import { useEffect } from 'react';
+import Link from 'next/link';
 import { useGlobalPollution } from '../../lib/useRoom';
 import { BALANCE, meter } from '../../lib/game';
 
@@ -22,7 +23,9 @@ export default function Host() {
     <div className="host">
       <div className="wrap wide" style={{ paddingTop: 28 }}>
         <div className="between">
-          <h1 style={{ letterSpacing: '.3em', fontSize: 26 }}>C L E A N &nbsp; R O O M</h1>
+          <h1 style={{ letterSpacing: '.3em', fontSize: 26 }}>
+            <Link href="/" className="brand" style={{ color: 'inherit' }}>C L E A N &nbsp; R O O M</Link>
+          </h1>
           <span className="num" style={{ fontSize: 22, color: smog ? 'var(--taint)' : 'var(--clean)' }}>
             {smog ? 'SMOG' : 'CLEAR'}
           </span>

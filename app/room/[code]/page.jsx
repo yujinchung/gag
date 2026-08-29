@@ -1,6 +1,7 @@
 'use client';
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { useParams } from 'next/navigation';
+import Link from 'next/link';
 import { useRoom, useGlobalPollution } from '../../../lib/useRoom';
 import {
   BALANCE, POD_SIZE, ROLE_KO, ROLE_BRIEF, PHASE_TIP,
@@ -226,6 +227,7 @@ export default function Room() {
       {smog && <div className="smog-label">안개가 끼었어요 · 대답 일부가 가려져요</div>}
 
       <div className="bar">
+        <Link href="/" className="brand">C L E A N &nbsp; R O O M</Link>
         <span>방 {code}</span>
         {state?.started && <span>라운드 {state.round}/{cycles}</span>}
         <span className="spacer" />
