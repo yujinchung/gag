@@ -32,40 +32,47 @@ export default function Home() {
       <div className="bar">
         <span>C L E A N &nbsp; R O O M</span>
         <span className="spacer" />
-        <span>2087 · 정화국</span>
+        <span>마음속 그림 맞히기</span>
       </div>
 
       {!isRealtimeConfigured() && (
         <div className="panel">
-          <p className="eyebrow">로컬 모드</p>
+          <p className="eyebrow">이 컴퓨터에서만</p>
           <p style={{ color: 'var(--fg)' }}>
-            이 브라우저의 탭끼리만 연결됩니다. 1명이어도 바로 시작할 수 있습니다.
+            같은 브라우저 탭끼리만 붙어요. 혼자여도 바로 시작할 수 있어요.
           </p>
         </div>
       )}
 
       {step === 0 && (
         <>
-          <p className="eyebrow">Metaphor &amp; Clean Language</p>
+          <p className="eyebrow">Clean Language</p>
           <h1>오염 탐지기</h1>
           <div className="panel accent">
             <p style={{ color: 'var(--fg)', lineHeight: 1.75 }}>
-              한 사람의 시그널을, 당신의 언어를 한 글자도 섞지 않고 복원하라.
-              상대가 쓴 단어만 쓴다. 할 일은 접속 후 화면에 나온다.
+              이 게임은 Clean Language를 배우는 게임이에요.
+              상대가 말한 단어만 쓰고, “내 생각엔 이런 거지?”는 넣지 않는 연습입니다.
             </p>
           </div>
-          <button onClick={() => setStep(1)}>시그널 등록</button>
+          <div className="panel tip">
+            <p className="eyebrow">어떻게 해요?</p>
+            <p style={{ color: 'var(--fg)' }}>
+              한 친구의 마음속 그림을, 그 친구가 쓴 말로만 되살려 보세요.
+              들어갈 방에선 네 할 일이 화면에 나와요.
+            </p>
+          </div>
+          <button onClick={() => setStep(1)}>내 이야기 쓰기</button>
         </>
       )}
 
       {step === 1 && (
         <>
-          <p className="eyebrow">01 / 시그널 등록</p>
-          <h1>당신의 시그널</h1>
-          <p>지금 당신을 끄달리게 하는 문제 하나. 팀이 이걸 복원하게 됩니다.</p>
+          <p className="eyebrow">01 / 내 이야기</p>
+          <h1>지금 마음에 걸리는 것</h1>
+          <p>팀이 이 그림을 맞혀 보게 돼요. 말하고 싶은 만큼만 적으면 돼요.</p>
 
           <div className="panel">
-            <label>공개 강도 — 당신이 정합니다</label>
+            <label>얼마나 깊게 말할까요</label>
             <div className="tpl-grid">
               {INTENSITY.map((t) => (
                 <button key={t.id} className={`tpl ${intensity === t.id ? 'on' : ''}`} onClick={() => setIntensity(t.id)}>
@@ -79,49 +86,49 @@ export default function Home() {
           <div className="panel accent">
             <label>나의 힘든 현재 문제는</label>
             <input value={sig.situation} onChange={(e) => setSig({ ...sig, situation: e.target.value })}
-              placeholder="예: 논문이 3개월째 제자리다" />
+              placeholder="예: 숙제가 며칠째 그대로야" />
 
-            <p className="eyebrow" style={{ marginTop: 18 }}>이제 그것을 은유로 바꿉니다</p>
-            <label>본체 — 그건 무엇과 같습니까</label>
+            <p className="eyebrow" style={{ marginTop: 18 }}>이제 그림으로 바꿔 봐요</p>
+            <label>그것은 무엇과 같나요</label>
             <input value={sig.body} onChange={(e) => setSig({ ...sig, body: e.target.value })}
               placeholder="예: 젖은 성냥" />
-            <label>공간 — 그건 어디에 있습니까</label>
+            <label>그것은 어디에 있나요</label>
             <input value={sig.space} onChange={(e) => setSig({ ...sig, space: e.target.value })}
               placeholder="예: 안개 낀 벌판 한가운데" />
-            <label>조건 — 무엇이 있어야 달라집니까</label>
+            <label>무엇이 있어야 달라지나요</label>
             <input value={sig.condition} onChange={(e) => setSig({ ...sig, condition: e.target.value })}
               placeholder="예: 바람이 잠깐 멎어야 한다" />
           </div>
 
-          <button className="ghost small" onClick={pullFromDeck}>떠오르지 않으면 보관소에서 꺼내기</button>
+          <button className="ghost small" onClick={pullFromDeck}>생각이 안 나면 여기서 고르기</button>
           <p style={{ fontSize: 13 }}>
-            보관소 시그널은 남의 것입니다. 게임은 똑같이 돌아가고, 아무도 그게 당신 것인지 묻지 않습니다.
+            여기서 고른 이야기는 다른 사람 것이에요. 그래도 게임은 같고, 아무도 네 것인지 묻지 않아요.
           </p>
           <div style={{ height: 10 }} />
-          <button onClick={() => setStep(2)} disabled={!ready}>등록 완료</button>
+          <button onClick={() => setStep(2)} disabled={!ready}>다음</button>
         </>
       )}
 
       {step === 2 && (
         <>
-          <p className="eyebrow">02 / 팟 접속</p>
-          <h1>정화팀 배정</h1>
+          <p className="eyebrow">02 / 방 들어가기</p>
+          <h1>친구와 같은 방</h1>
           <div className="panel accent">
-            <label htmlFor="nm">호출명</label>
-            <input id="nm" value={name} onChange={(e) => setName(e.target.value)} placeholder="화면에 표시될 이름" />
-            <label htmlFor="cd">팟 코드</label>
+            <label htmlFor="nm">이름</label>
+            <input id="nm" value={name} onChange={(e) => setName(e.target.value)} placeholder="화면에 보일 이름" />
+            <label htmlFor="cd">방 코드</label>
             <div className="row">
               <input id="cd" value={code} onChange={(e) => setCode(e.target.value.toUpperCase())} placeholder="ABCD" maxLength={4} />
               <button className="small" onClick={() => go(code)} disabled={!name.trim() || code.length < 4}>
-                접속
+                들어가기
               </button>
             </div>
           </div>
           <button className="ghost" onClick={() => go(makeRoomCode())} disabled={!name.trim()}>
-            새 팟 개설
+            새 방 만들기
           </button>
           <p style={{ fontSize: 13 }}>
-            시그널 원문은 당신 기기에만 있습니다. 1명이어도 바로 플레이할 수 있습니다.
+            네 이야기 원문은 이 기기에만 있어요. 혼자여도 시작할 수 있어요.
           </p>
         </>
       )}

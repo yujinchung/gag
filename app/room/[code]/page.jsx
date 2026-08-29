@@ -3,35 +3,35 @@ import { useEffect, useRef, useState, useCallback } from 'react';
 import { useParams } from 'next/navigation';
 import { useRoom, useGlobalPollution } from '../../../lib/useRoom';
 import {
-  BALANCE, POD_SIZE, ROLE_LABEL, ROLE_KO, ROLE_BRIEF,
+  BALANCE, POD_SIZE, ROLE_KO, ROLE_BRIEF, PHASE_TIP,
   rolesForSeat, visibleRoles, holderSeat, cycleCount, settleCause,
   roundScore, newRoundState, meter,
 } from '../../../lib/game';
-import { HolderView, ProberView, WatcherView, RestorerView } from '../../../components/Views';
+import { HolderView, ProberView, WatcherView, RestorerView, Tip } from '../../../components/Views';
 
 const NEXT = { deal: 'probe', probe: 'restore', restore: 'settle' };
-const FALLBACK_SIGNAL = { situation: '(시그널 미등록)', body: '', space: '', condition: '' };
+const FALLBACK_SIGNAL = { situation: '(이야기 없음)', body: '', space: '', condition: '' };
 
 function DebriefBlock({ round, pts, cause, questions, guess, reveal, scores, holderNote }) {
   return (
     <div className="panel accent">
-      <p className="eyebrow">대조 결과 · 사이클 {round}</p>
-      <h2>{pts ?? 0}</h2>
+      <p className="eyebrow">돌아보기 · 라운드 {round}</p>
+      <h2>{pts ?? 0}점</h2>
       {cause && <p style={{ color: 'var(--fg)' }}>{cause}</p>}
-      <div className="log"><span className="tag">본체 원본</span>{reveal?.body || '대조 중'}</div>
-      <div className="log"><span className="tag">본체 복원</span>{guess?.body || '미전송'}</div>
-      <div className="log"><span className="tag">공간 원본</span>{reveal?.space || '—'}</div>
-      <div className="log"><span className="tag">공간 복원</span>{guess?.space || '미전송'}</div>
-      <div className="log"><span className="tag">조건 원본</span>{reveal?.condition || '—'}</div>
-      <div className="log"><span className="tag">조건 복원</span>{guess?.condition || '미전송'}</div>
+      <div className="log"><span className="tag">무엇 · 원래</span>{reveal?.body || '아직 확인 중'}</div>
+      <div className="log"><span className="tag">무엇 · 맞힌 것</span>{guess?.body || '아직 없음'}</div>
+      <div className="log"><span className="tag">어디 · 원래</span>{reveal?.space || '—'}</div>
+      <div className="log"><span className="tag">어디 · 맞힌 것</span>{guess?.space || '아직 없음'}</div>
+      <div className="log"><span className="tag">달라지는 조건 · 원래</span>{reveal?.condition || '—'}</div>
+      <div className="log"><span className="tag">달라지는 조건 · 맞힌 것</span>{guess?.condition || '아직 없음'}</div>
       {scores?.note && <p style={{ color: 'var(--fg)' }}>{scores.note}</p>}
       {(questions || []).map((q) => (
         <div key={q.id} className={`log ${q.voided ? 'voided' : ''}`}>
-          <span className="tag">청정 {q.clean}{q.voided ? ' · 차단' : ''}</span>{q.text}
+          <span className="tag">깨끗 {q.clean}{q.voided ? ' · 막힘' : ''}</span>{q.text}
         </div>
       ))}
       {holderNote && (
-        <p style={{ fontSize: 13 }}>당신의 문제 원문은 공개되지 않았습니다. 말하고 싶으면 지금 팀에게 직접 말하세요.</p>
+        <p style={{ fontSize: 13 }}>네 고민 문장은 공개되지 않았어요. 말하고 싶으면 지금 친구에게 직접 말해도 돼요.</p>
       )}
     </div>
   );
@@ -214,20 +214,20 @@ export default function Room() {
     ? roster[holderSeat(state.round, nSeats)]?.name
     : null;
   const connLabel = conn.status === 'error'
-    ? '연결 실패 · 이 기기에서 진행'
+    ? '연결 안 됨 · 이 화면에서 해요'
     : conn.status === 'connecting' || conn.status === 'idle'
       ? '연결 중'
-      : conn.mode === 'local' ? '로컬 탭 연결' : '실시간 연결';
+      : conn.mode === 'local' ? '이 컴퓨터 탭끼리' : '여러 기기 연결됨';
   const lastSettle = (state?.history || []).slice(-1)[0];
-  const roleTag = myRoles.map((r) => `${ROLE_LABEL[r]} · ${ROLE_KO[r]}`).join('  +  ');
+  const roleTag = myRoles.map((r) => ROLE_KO[r]).join('  +  ');
 
   return (
     <div className="wrap">
-      {smog && <div className="smog-label">S M O G &nbsp; 대기 오염 임계 초과</div>}
+      {smog && <div className="smog-label">안개가 끼었어요 · 대답 일부가 가려져요</div>}
 
       <div className="bar">
-        <span>POD {code}</span>
-        {state?.started && <span>CYCLE {state.round}/{cycles}</span>}
+        <span>방 {code}</span>
+        {state?.started && <span>라운드 {state.round}/{cycles}</span>}
         <span className="spacer" />
         <span>{connLabel}</span>
         {state?.started && <span className={`timer ${left <= 10 ? 'low' : ''}`}>{mmss}</span>}
@@ -235,35 +235,35 @@ export default function Room() {
 
       {!state?.started && (
         <>
-          <p className="eyebrow">대기실 · 정화팀 편성</p>
-          <h1>POD {code}</h1>
-          <p>1명이어도 개시할 수 있습니다. 빈 역할은 탐문/복원 단계로 나눕니다. 진행 기기를 새로고침하면 이 팟은 리셋됩니다.</p>
+          <p className="eyebrow">대기실</p>
+          <h1>방 {code}</h1>
+          <p>혼자여도 시작할 수 있어요. 사람이 적으면 질문 시간과 맞혀 보는 시간을 나눠서 해요. 이 화면을 새로고침하면 방이 처음부터예요.</p>
           <div className="panel">
             {Array.from({ length: POD_SIZE }, (_, i) => {
               const m = pod[i];
               return (
                 <div key={m?.id || `seat-${i}`} className={`log ${m ? '' : 'waiting'}`}>
                   <span className="tag">{String(i + 1).padStart(2, '0')}</span>
-                  {m ? m.name : '비움'}
-                  {i === 0 && m && <span className="tag" style={{ marginLeft: 8 }}>진행 기기</span>}
+                  {m ? m.name : '빈자리'}
+                  {i === 0 && m && <span className="tag" style={{ marginLeft: 8 }}>진행 화면</span>}
                 </div>
               );
             })}
           </div>
           {overflow && (
-            <p>앞 {POD_SIZE}명이 플레이하고, 나머지는 정산 기록을 봅니다.</p>
+            <p>앞 {POD_SIZE}명이 하고, 나머지는 같이 돌아보기만 해요.</p>
           )}
           {conn.status === 'error' && (
             <div className="panel warn">
-              <p className="eyebrow">실시간 실패</p>
-              <p style={{ color: 'var(--fg)' }}>이 기기에서 로컬로 진행합니다. 같은 브라우저 탭끼리는 로컬 모드로 붙습니다.</p>
+              <p className="eyebrow">연결이 안 돼요</p>
+              <p style={{ color: 'var(--fg)' }}>이 화면에서 바로 할 수 있어요. 같은 브라우저 탭이면 서로 붙어요.</p>
             </div>
           )}
           {conn.mode === 'local' && conn.status === 'subscribed' && (
             <div className="panel">
-              <p className="eyebrow">로컬 모드</p>
+              <p className="eyebrow">이 컴퓨터에서만</p>
               <p style={{ color: 'var(--fg)' }}>
-                이 브라우저의 탭끼리만 연결됩니다. 탭을 더 열면 역할을 나눕니다.
+                탭을 더 열면 역할을 나눌 수 있어요.
               </p>
             </div>
           )}
@@ -273,9 +273,9 @@ export default function Room() {
             </button>
           </div>
           {isEngine
-            ? <button onClick={start} disabled={pod.length < 1}>정화 개시 ({pod.length}/{POD_SIZE})</button>
-            : <p>진행 기기의 개시 신호를 기다리는 중. 1명이어도 시작할 수 있습니다.</p>}
-          {!signal && <p style={{ color: 'var(--taint)' }}>시그널이 없으면 빈 원본으로 연습합니다. 가능하면 첫 화면에서 등록하세요.</p>}
+            ? <button onClick={start} disabled={pod.length < 1}>시작하기 ({pod.length}/{POD_SIZE})</button>
+            : <p>진행 화면에서 시작하기를 눌러 주세요. 혼자여도 돼요.</p>}
+          {!signal && <p style={{ color: 'var(--taint)' }}>이야기가 없으면 빈칸으로 연습해요. 가능하면 첫 화면에서 적어 주세요.</p>}
         </>
       )}
 
@@ -286,18 +286,19 @@ export default function Room() {
             <span className="num">{total}</span>
           </div>
           {nSeats === 1 && (
-            <p style={{ fontSize: 13 }}>1인 연습 — 원본을 아는 채로 복원합니다. 복원 단계에서는 질의가 가려집니다.</p>
+            <p style={{ fontSize: 13 }}>혼자 연습 중이에요. 네 그림을 이미 아니까 맞춰 보기가 쉬울 수 있어요. 맞혀 보는 시간에는 질문이 숨겨져요.</p>
           )}
 
           {state.phase === 'deal' && (
             <div className="panel accent">
-              <p className="eyebrow">사이클 {state.round} 개시</p>
-              <h2>이번 사이클의 원본: {sourceName || '배정 중'}</h2>
+              <p className="eyebrow">라운드 {state.round} 시작</p>
+              <h2>이번 이야기 주인: {sourceName || '정하는 중'}</h2>
               {myRoles.map((r) => (
                 <p key={r} style={{ color: 'var(--fg)' }}>{ROLE_BRIEF[r]}</p>
               ))}
             </div>
           )}
+          {state.phase === 'deal' && <Tip>{PHASE_TIP.deal}</Tip>}
 
           {(state.phase === 'probe' || state.phase === 'restore') && (
             <>
@@ -308,7 +309,7 @@ export default function Room() {
               )}
               {shown.includes('restorer') && <RestorerView st={state} send={send} smog={smog} />}
               {state.phase === 'restore' && !shown.length && (
-                <p>복원 단계입니다. 질의는 가려져 있습니다.</p>
+                <p>지금은 맞춰 보는 시간이에요. 질문은 일부러 숨겼어요.</p>
               )}
             </>
           )}
@@ -325,19 +326,20 @@ export default function Room() {
               holderNote={myRoles.includes('holder')}
             />
           )}
+          {state.phase === 'settle' && <Tip>{PHASE_TIP.settle}</Tip>}
           {state.phase === 'settle' && (
-            <div className="meter clean">{meter(avgClean)} 청정 {avgClean}</div>
+            <div className="meter clean">{meter(avgClean)} 깨끗한 점수 {avgClean}</div>
           )}
         </>
       )}
 
       {state?.started && !seated && (
         <div className="panel">
-          <p className="eyebrow">기록</p>
-          <p style={{ color: 'var(--fg)' }}>플레이 자리는 앞 {POD_SIZE}명입니다. 정산에서 질의와 복원을 함께 돌아보세요.</p>
+          <p className="eyebrow">같이 보기</p>
+          <p style={{ color: 'var(--fg)' }}>하는 자리는 앞 {POD_SIZE}명이에요. 질문이 깨끗한지, 그림이 어떻게 맞았는지 같이 봐요.</p>
           {(state.questions || []).map((q) => (
             <div key={q.id} className={`log ${q.voided ? 'voided' : ''}`}>
-              <span className="tag">청정 {q.clean}</span>{q.text}
+              <span className="tag">깨끗 {q.clean}</span>{q.text}
             </div>
           ))}
           {state.phase === 'settle' && lastSettle && (
@@ -356,8 +358,8 @@ export default function Room() {
 
       {state?.phase === 'end' && (
         <>
-          <p className="eyebrow">정화 종료</p>
-          <h1>{total}</h1>
+          <p className="eyebrow">끝</p>
+          <h1>{total}점</h1>
           {(state.history || []).map((h) => (
             <DebriefBlock
               key={h.round}
@@ -371,10 +373,10 @@ export default function Room() {
             />
           ))}
           <div className="panel accent" style={{ marginTop: 16 }}>
-            <p className="eyebrow">최종 보고</p>
+            <p className="eyebrow">한 바퀴</p>
             <p style={{ color: 'var(--fg)' }}>
-              지금 팟에서 한 사람씩 답하세요 —
-              <strong> 남이 복원해준 내 은유를 들었을 때 무엇이 올라왔습니까?</strong>
+              한 사람씩 말해 봐요 —
+              <strong> 친구가 되살려 준 내 그림을 들었을 때, 무엇이 올라왔나요?</strong>
             </p>
           </div>
         </>

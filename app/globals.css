@@ -94,6 +94,8 @@ p { line-height: 1.6; color: var(--mut); margin: 6px 0; }
 }
 .panel.accent { border-left: 3px solid var(--neon); }
 .panel.warn { border-left: 3px solid var(--taint); }
+.panel.tip { border-left: 3px solid var(--amber); }
+.panel.tip p { margin: 4px 0 0; }
 
 .meter { font-family: var(--mono); font-size: 13px; letter-spacing: -.05em; line-height: 1; }
 .meter.clean { color: var(--clean); }

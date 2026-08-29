@@ -30,7 +30,7 @@ export default function Host() {
 
         <div className="panel">
           <div className="between">
-            <span className="eyebrow">대기 오염도 · 전 구역 공용 · 임계 {BALANCE.smogThreshold}%</span>
+            <span className="eyebrow">공기가 탁한 정도 · 모든 방 · {BALANCE.smogThreshold}%면 안개</span>
             <span className="num" style={{ color: pollution >= BALANCE.smogThreshold ? 'var(--taint)' : 'var(--amber)' }}>
               {Math.round(pollution)}%
             </span>
@@ -41,7 +41,7 @@ export default function Host() {
         </div>
 
         <div className="panel">
-          <p className="eyebrow">정화 순위 · 점수 · 청정도</p>
+          <p className="eyebrow">팀 점수 · 깨끗한 정도</p>
           {rows.map((r, i) => (
             <div key={r.pod} className="board-row">
               <span className="rank">{String(i + 1).padStart(2, '0')}</span>
@@ -50,7 +50,7 @@ export default function Host() {
               <span className="num" style={{ fontSize: 20, textAlign: 'right' }}>{r.score}</span>
             </div>
           ))}
-          {!rows.length && <p>팟이 접속하면 여기에 나타납니다.</p>}
+          {!rows.length && <p>방이 들어오면 여기에 보여요.</p>}
         </div>
       </div>
     </div>
