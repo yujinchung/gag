@@ -3,7 +3,7 @@ import { useEffect, useRef, useState, useCallback } from 'react';
 import { useParams } from 'next/navigation';
 import { useRoom, useGlobalPollution } from '../../../lib/useRoom';
 import {
-  BALANCE, ROLE_LABEL, ROLE_KO, ROLE_BRIEF, roleFor, roundScore, newRoundState, meter,
+  BALANCE, POD_SIZE, ROLE_LABEL, ROLE_KO, ROLE_BRIEF, roleFor, roundScore, newRoundState, meter,
 } from '../../../lib/game';
 import { HolderView, ProberView, WatcherView, RestorerView } from '../../../components/Views';
 
@@ -26,7 +26,7 @@ export default function Room() {
   const [total, setTotal] = useState(0);
   const [avgClean, setAvgClean] = useState(100);
 
-  const { members, seatIndex, state, setState, isEngine, send } = useRoom({
+  const { pod, seatIndex, state, setState, isEngine, send, conn, overflow } = useRoom({
     code, name, onAction: (a) => engineRef.current && applyAction(a),
   });
   engineRef.current = isEngine;
@@ -144,10 +144,21 @@ export default function Room() {
     return () => clearInterval(t);
   }, [state]);
 
-  const start = () => push({ started: true, history: [], ...newRoundState(1) });
+  const start = () => {
+    if (pod.length < POD_SIZE) return;
+    push({ started: true, history: [], ...newRoundState(1) });
+  };
   const mmss = `${String(Math.floor(left / 60)).padStart(2, '0')}:${String(left % 60).padStart(2, '0')}`;
-  const role = state?.started ? roleFor(seatIndex, state.round) : null;
-  const sourceName = state?.started ? members[(seatIndex - (state.round - 1) + 400) % 4]?.name : null;
+  const seated = seatIndex >= 0;
+  const role = state?.started && seated ? roleFor(seatIndex, state.round) : null;
+  const sourceName = state?.started
+    ? pod.find((_, i) => roleFor(i, state.round) === 'holder')?.name
+    : null;
+  const connLabel = conn.status === 'error'
+    ? '연결 실패'
+    : conn.status === 'connecting' || conn.status === 'idle'
+      ? '연결 중'
+      : conn.mode === 'local' ? '로컬 탭 연결' : '실시간 연결';
 
   return (
     <div className="wrap">
@@ -157,6 +168,7 @@ export default function Room() {
         <span>POD {code}</span>
         {state?.started && <span>CYCLE {state.round}/{BALANCE.rounds}</span>}
         <span className="spacer" />
+        <span>{connLabel}</span>
         {state?.started && <span className={`timer ${left <= 10 ? 'low' : ''}`}>{mmss}</span>}
       </div>
 
@@ -164,23 +176,49 @@ export default function Room() {
         <>
           <p className="eyebrow">대기실 · 정화팀 편성</p>
           <h1>POD {code}</h1>
-          <p>4명이 모이면 개시합니다. 이 코드를 팀원에게 전달하세요.</p>
+          <p>4명이 같은 코드로 접속하면 개시합니다. 이 코드를 팀원 3명에게 전달하세요.</p>
           <div className="panel">
-            {members.map((m, i) => (
-              <div key={m.id} className="log">
-                <span className="tag">{String(i + 1).padStart(2, '0')}</span>{m.name}
-                {i === 0 && <span className="tag" style={{ marginLeft: 8 }}>진행 기기</span>}
-              </div>
-            ))}
+            {Array.from({ length: POD_SIZE }, (_, i) => {
+              const m = pod[i];
+              return (
+                <div key={m?.id || `seat-${i}`} className={`log ${m ? '' : 'waiting'}`}>
+                  <span className="tag">{String(i + 1).padStart(2, '0')}</span>
+                  {m ? m.name : '대기 중…'}
+                  {i === 0 && m && <span className="tag" style={{ marginLeft: 8 }}>진행 기기</span>}
+                </div>
+              );
+            })}
+          </div>
+          {overflow && (
+            <p>이 팟은 {POD_SIZE}명입니다. 먼저 들어온 {POD_SIZE}명이 플레이합니다.</p>
+          )}
+          {conn.status === 'error' && (
+            <div className="panel warn">
+              <p className="eyebrow">연결 실패</p>
+              <p style={{ color: 'var(--fg)' }}>실시간 채널에 붙지 못했습니다. 네트워크와 Supabase 키를 확인하세요.</p>
+            </div>
+          )}
+          {conn.mode === 'local' && conn.status === 'subscribed' && (
+            <div className="panel">
+              <p className="eyebrow">로컬 모드</p>
+              <p style={{ color: 'var(--fg)' }}>
+                이 브라우저의 탭끼리만 연결됩니다. 탭을 4개 열고 같은 코드로 들어오면 동시에 대기실에 모입니다.
+              </p>
+            </div>
+          )}
+          <div className="row" style={{ marginBottom: 12 }}>
+            <button className="ghost small" type="button" onClick={() => navigator.clipboard?.writeText(String(code).toUpperCase())}>
+              코드 복사
+            </button>
           </div>
           {isEngine
-            ? <button onClick={start} disabled={members.length < 2}>정화 개시 ({members.length}/4)</button>
-            : <p>진행 기기의 개시 신호를 기다리는 중.</p>}
+            ? <button onClick={start} disabled={pod.length < POD_SIZE}>정화 개시 ({pod.length}/{POD_SIZE})</button>
+            : <p>{pod.length < POD_SIZE ? `나머지 ${POD_SIZE - pod.length}명 접속을 기다리는 중.` : '진행 기기의 개시 신호를 기다리는 중.'}</p>}
           {!signal && <p style={{ color: 'var(--taint)' }}>시그널이 등록되지 않았습니다. 첫 화면으로 돌아가 등록하세요.</p>}
         </>
       )}
 
-      {state?.started && state.phase !== 'end' && (
+      {state?.started && state.phase !== 'end' && seated && (
         <>
           <div className="between">
             <span className="role-tag">{ROLE_LABEL[role]} · {ROLE_KO[role]}</span>
@@ -222,6 +260,13 @@ export default function Room() {
             </div>
           )}
         </>
+      )}
+
+      {state?.started && !seated && (
+        <div className="panel warn">
+          <p className="eyebrow">관전</p>
+          <p style={{ color: 'var(--fg)' }}>이 팟은 이미 4명이 편성됐습니다. 플레이 자리는 없습니다.</p>
+        </div>
       )}
 
       {state?.phase === 'end' && (

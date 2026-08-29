@@ -137,6 +137,7 @@ label { display: block; font-family: var(--mono); font-size: 11px; letter-spacin
 
 .log { font-size: 14px; line-height: 1.55; padding: 9px 0; border-bottom: 1px dashed var(--rule); color: var(--fg); }
 .log:last-child { border-bottom: 0; }
+.log.waiting { color: var(--mut); }
 .log .tag { font-family: var(--mono); font-size: 11px; color: var(--mut); margin-right: 6px; }
 .log.voided { text-decoration: line-through; opacity: .45; }
 

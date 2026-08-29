@@ -2,7 +2,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { makeRoomCode, INTENSITY } from '../lib/game';
-import { supabaseConfigured } from '../lib/useRoom';
+import { isRealtimeConfigured } from '../lib/useRoom';
 import deck from '../data/cards.json';
 
 export default function Home() {
@@ -35,12 +35,13 @@ export default function Home() {
         <span>2087 · 정화국</span>
       </div>
 
-      {!supabaseConfigured && (
-        <div className="panel warn">
-          <p className="eyebrow">설정 필요</p>
+      {!isRealtimeConfigured() && (
+        <div className="panel">
+          <p className="eyebrow">로컬 모드</p>
           <p style={{ color: 'var(--fg)' }}>
-            Supabase 키가 없어 실시간 연결이 되지 않습니다. Vercel 환경변수에
-            NEXT_PUBLIC_SUPABASE_URL과 NEXT_PUBLIC_SUPABASE_ANON_KEY를 등록하고 다시 배포하세요.
+            Supabase 키가 없어 이 브라우저의 탭끼리만 연결됩니다. 탭을 4개 열고 같은 팟 코드로
+            들어오면 대기실에 동시에 모입니다. 다른 기기와 붙이려면
+            NEXT_PUBLIC_SUPABASE_URL과 NEXT_PUBLIC_SUPABASE_ANON_KEY를 등록하세요.
           </p>
         </div>
       )}
