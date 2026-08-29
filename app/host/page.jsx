@@ -7,6 +7,10 @@ export default function Host() {
   const { pollution, smog, board, requestBoard } = useGlobalPollution({ podCode: null });
 
   useEffect(() => {
+    document.body.dataset.air = smog ? 'smog' : pollution >= 35 ? 'haze' : 'clear';
+  }, [pollution, smog]);
+
+  useEffect(() => {
     requestBoard();
     const t = setInterval(requestBoard, 5000);
     return () => clearInterval(t);
@@ -26,7 +30,7 @@ export default function Host() {
 
         <div className="panel">
           <div className="between">
-            <span className="eyebrow">전체 오염 · 10팟 공용 · 임계 {BALANCE.smogThreshold}%</span>
+            <span className="eyebrow">대기 오염도 · 전 구역 공용 · 임계 {BALANCE.smogThreshold}%</span>
             <span className="num" style={{ color: pollution >= BALANCE.smogThreshold ? 'var(--taint)' : 'var(--amber)' }}>
               {Math.round(pollution)}%
             </span>
@@ -37,11 +41,11 @@ export default function Host() {
         </div>
 
         <div className="panel">
-          <p className="eyebrow">순위 · 점수 · 청정도</p>
+          <p className="eyebrow">정화 순위 · 점수 · 청정도</p>
           {rows.map((r, i) => (
             <div key={r.pod} className="board-row">
               <span className="rank">{String(i + 1).padStart(2, '0')}</span>
-              <span className="name">팟 {r.pod}</span>
+              <span className="name">POD {r.pod}</span>
               <span className={`meter ${r.clean < 60 ? 'taint' : 'clean'}`}>{meter(r.clean, 20)}</span>
               <span className="num" style={{ fontSize: 20, textAlign: 'right' }}>{r.score}</span>
             </div>

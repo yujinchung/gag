@@ -1,40 +1,77 @@
 @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css');
 @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&display=swap');
 
-/* ── 무균실 계기판 ──────────────────────────────────
-   흰 바닥 · 청록 계기 · 마젠타 오염. 게이지는 항상 모노스페이스 블록. */
+/* ── 화면이 곧 오염 게이지 ─────────────────────────────────
+   CLEAR  무균실. 흰 바닥, 청록 계기.
+   HAZE   대기가 탁해진다. 배경이 내려앉고 마젠타가 스며든다.
+   SMOG   정화 실패. 완전한 네온. 스캔라인.                  */
 :root {
-  --paper: #edf2f0;
+  --bg: #edf2f0;
   --panel: #ffffff;
-  --ink: #0b1513;
+  --fg: #0b1513;
   --mut: #5c7370;
   --clean: #00b39a;
   --taint: #e5006d;
+  --neon: #00b39a;
   --amber: #ff9e1b;
   --rule: #c6d6d1;
+  --glow: none;
   --mono: 'IBM Plex Mono', ui-monospace, monospace;
   --sans: 'Pretendard', -apple-system, system-ui, sans-serif;
+  transition: none;
+}
+
+body[data-air='haze'] {
+  --bg: #1b2426;
+  --panel: #222d30;
+  --fg: #dfeeea;
+  --mut: #7e9a97;
+  --rule: #35474a;
+  --neon: #2ee6c4;
+  --glow: 0 0 12px rgba(46, 230, 196, .35);
+}
+
+body[data-air='smog'] {
+  --bg: #08090f;
+  --panel: #0e1119;
+  --fg: #eafcff;
+  --mut: #6f7f9b;
+  --rule: #22283a;
+  --clean: #2ee6c4;
+  --neon: #ff2e88;
+  --taint: #ff2e88;
+  --glow: 0 0 18px rgba(255, 46, 136, .55);
 }
 
 * { box-sizing: border-box; }
 
 body {
   margin: 0;
-  background: var(--paper);
-  color: var(--ink);
+  background: var(--bg);
+  color: var(--fg);
   font-family: var(--sans);
   -webkit-font-smoothing: antialiased;
+  transition: background-color .9s ease, color .9s ease;
 }
+
+/* SMOG 상태에서만 도는 스캔라인. 하나만, 아주 약하게. */
+body[data-air='smog']::after {
+  content: '';
+  position: fixed; inset: 0; pointer-events: none; z-index: 60;
+  background: repeating-linear-gradient(
+    to bottom, rgba(255, 46, 136, .05) 0 1px, transparent 1px 3px);
+  animation: scan 7s linear infinite;
+}
+@keyframes scan { from { transform: translateY(0); } to { transform: translateY(3px); } }
 
 .wrap { max-width: 560px; margin: 0 auto; padding: 0 16px 64px; }
 .wide { max-width: 1100px; }
 
-/* 계기 바 */
 .bar {
   position: sticky; top: 0; z-index: 5;
   display: flex; align-items: center; gap: 12px;
   padding: 12px 16px; margin: 0 -16px 16px;
-  background: var(--ink); color: var(--paper);
+  background: var(--fg); color: var(--bg);
   font-family: var(--mono); font-size: 12px; letter-spacing: .08em;
 }
 .bar .spacer { flex: 1; }
@@ -46,60 +83,59 @@ body {
   text-transform: uppercase; color: var(--mut);
 }
 
-h1 { font-size: 30px; font-weight: 800; letter-spacing: -.03em; margin: 8px 0 4px; }
+h1 { font-size: 30px; font-weight: 800; letter-spacing: -.03em; margin: 8px 0 4px; text-shadow: var(--glow); }
 h2 { font-size: 19px; font-weight: 700; letter-spacing: -.02em; margin: 0 0 8px; }
 p { line-height: 1.6; color: var(--mut); margin: 6px 0; }
-a { color: var(--clean); }
 
 .panel {
   background: var(--panel); border: 1px solid var(--rule);
   border-radius: 2px; padding: 16px; margin-bottom: 12px;
+  transition: background-color .9s ease, border-color .9s ease;
 }
-.panel.accent { border-left: 3px solid var(--clean); }
+.panel.accent { border-left: 3px solid var(--neon); }
 .panel.warn { border-left: 3px solid var(--taint); }
 
-/* 청정 게이지 — 이 화면의 서명 */
 .meter { font-family: var(--mono); font-size: 13px; letter-spacing: -.05em; line-height: 1; }
 .meter.clean { color: var(--clean); }
-.meter.taint { color: var(--taint); }
+.meter.taint { color: var(--taint); text-shadow: var(--glow); }
 .meter.amber { color: var(--amber); }
 .num { font-family: var(--mono); font-weight: 600; }
 
 .role-tag {
   display: inline-block; font-family: var(--mono); font-size: 12px;
-  letter-spacing: .1em; padding: 3px 8px;
-  background: var(--ink); color: var(--paper);
+  letter-spacing: .18em; padding: 3px 9px;
+  background: var(--fg); color: var(--bg);
 }
 
 button {
   font-family: var(--sans); font-size: 15px; font-weight: 700;
   padding: 13px 18px; border: 0; border-radius: 2px;
-  background: var(--ink); color: var(--paper); cursor: pointer;
+  background: var(--fg); color: var(--bg); cursor: pointer;
   width: 100%; letter-spacing: -.01em;
 }
-button:disabled { background: var(--rule); color: #8fa3a0; cursor: not-allowed; }
-button.ghost { background: transparent; color: var(--ink); border: 1px solid var(--rule); }
-button.danger { background: var(--taint); }
+button:disabled { background: var(--rule); color: var(--mut); cursor: not-allowed; }
+button.ghost { background: transparent; color: var(--fg); border: 1px solid var(--rule); }
+button.danger { background: var(--taint); color: #fff; box-shadow: var(--glow); }
 button.small { width: auto; padding: 7px 12px; font-size: 13px; }
-button:focus-visible { outline: 3px solid var(--clean); outline-offset: 2px; }
+button:focus-visible { outline: 3px solid var(--neon); outline-offset: 2px; }
 
 input, textarea, select {
   width: 100%; font-family: var(--sans); font-size: 16px;
   padding: 12px; border: 1px solid var(--rule); border-radius: 2px;
-  background: var(--panel); color: var(--ink);
+  background: var(--panel); color: var(--fg);
 }
-input:focus, textarea:focus, select:focus { outline: 2px solid var(--clean); outline-offset: -1px; }
+input:focus, textarea:focus, select:focus { outline: 2px solid var(--neon); outline-offset: -1px; }
 label { display: block; font-family: var(--mono); font-size: 11px; letter-spacing: .12em; color: var(--mut); margin: 12px 0 4px; text-transform: uppercase; }
 
 .tpl-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
 .tpl {
   font-family: var(--sans); font-size: 12px; font-weight: 600;
   padding: 10px 6px; border: 1px solid var(--rule); background: var(--panel);
-  color: var(--ink); cursor: pointer; border-radius: 2px; line-height: 1.3;
+  color: var(--fg); cursor: pointer; border-radius: 2px; line-height: 1.3;
 }
-.tpl.on { background: var(--clean); border-color: var(--clean); color: #fff; }
+.tpl.on { background: var(--neon); border-color: var(--neon); color: #06100f; }
 
-.log { font-size: 14px; line-height: 1.55; padding: 9px 0; border-bottom: 1px dashed var(--rule); }
+.log { font-size: 14px; line-height: 1.55; padding: 9px 0; border-bottom: 1px dashed var(--rule); color: var(--fg); }
 .log:last-child { border-bottom: 0; }
 .log .tag { font-family: var(--mono); font-size: 11px; color: var(--mut); margin-right: 6px; }
 .log.voided { text-decoration: line-through; opacity: .45; }
@@ -107,25 +143,18 @@ label { display: block; font-family: var(--mono); font-size: 11px; letter-spacin
 .row { display: flex; gap: 8px; align-items: center; }
 .between { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
 
-/* 스모그 — 전체 오염이 임계를 넘으면 방 전체가 흐려집니다 */
-.smog {
-  position: fixed; inset: 0; pointer-events: none; z-index: 40;
-  background: radial-gradient(circle at 50% 20%, rgba(229,0,109,.16), rgba(229,0,109,.30));
-  backdrop-filter: blur(2.5px);
-  animation: drift 6s ease-in-out infinite alternate;
-}
 .smog-label {
-  position: fixed; top: 56px; left: 0; right: 0; z-index: 41; text-align: center;
-  font-family: var(--mono); font-size: 12px; letter-spacing: .3em; color: var(--taint);
+  position: fixed; top: 54px; left: 0; right: 0; z-index: 61; text-align: center;
+  font-family: var(--mono); font-size: 12px; letter-spacing: .34em; color: var(--taint);
+  text-shadow: var(--glow); pointer-events: none;
 }
-@keyframes drift { from { opacity: .75; } to { opacity: 1; } }
-@media (prefers-reduced-motion: reduce) { .smog { animation: none; } }
 
-/* 호스트 리더보드 */
+@media (prefers-reduced-motion: reduce) {
+  body[data-air='smog']::after { animation: none; }
+  body, .panel { transition: none; }
+}
+
 .board-row { display: grid; grid-template-columns: 34px 1fr 200px 90px; gap: 14px; align-items: center; padding: 9px 0; border-bottom: 1px solid var(--rule); }
 .board-row .rank { font-family: var(--mono); color: var(--mut); }
 .board-row .name { font-weight: 700; }
-.host { background: var(--ink); color: var(--paper); min-height: 100vh; }
-.host .panel { background: #12201d; border-color: #24403b; }
-.host p, .host .eyebrow { color: #8fada7; }
-.host .board-row { border-color: #24403b; }
+.host { min-height: 100vh; }

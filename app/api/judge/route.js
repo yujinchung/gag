@@ -1,5 +1,5 @@
 // 질문 청정도 심판. 빠른 응답이 게임 리듬을 만들기 때문에 Haiku를 씁니다.
-const MODEL = 'claude-haiku-4-5-20251001';
+const MODEL = 'claude-haiku-4-5';
 
 const SYSTEM = `당신은 클린 랭귀지(Clean Language) 심판이다.
 탐문자의 질문이 보유자의 언어를 오염시켰는지 채점한다.

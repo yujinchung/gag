@@ -1,4 +1,4 @@
-const MODEL = 'claude-haiku-4-5-20251001';
+const MODEL = 'claude-haiku-4-5';
 
 const SYSTEM = `당신은 은유 복원 심판이다.
 원본 은유 카드의 3요소와 복원자가 제출한 3요소를 각각 의미 유사도로 채점한다.
